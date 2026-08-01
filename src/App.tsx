@@ -12,6 +12,7 @@ import {
   Trophy,
   Volume2,
   VolumeX,
+  WalletCards,
   X,
   Zap,
 } from 'lucide-react'
@@ -33,7 +34,16 @@ type Stats = { hands: number; wins: number; best: number }
 
 const COIN_VALUE = 100
 const BET_OPTIONS = [1, 2, 3, 5]
-const STARTING_CREDITS = 120_000
+const STARTING_CREDITS = 10_000
+const MIN_BANKROLL = 1_000
+const MAX_BANKROLL = 1_000_000
+const BANKROLL_OPTIONS = [
+  { amount: 5_000, label: 'Quick run', hands: '10+ max-bet hands' },
+  { amount: 10_000, label: 'Classic', hands: '20+ max-bet hands' },
+  { amount: 25_000, label: 'Long night', hands: '50+ max-bet hands' },
+  { amount: 50_000, label: 'High roller', hands: '100+ max-bet hands' },
+  { amount: 100_000, label: 'Big table', hands: '200+ max-bet hands' },
+]
 const MISSION_REWARD = 10_000
 const EMPTY_CARDS = Array.from({ length: 5 }, (_, index) => index)
 
@@ -41,6 +51,12 @@ function loadNumber(key: string, fallback: number) {
   const stored = window.localStorage.getItem(key)
   const parsed = stored ? Number(stored) : fallback
   return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function normalizeBankroll(value: string | number) {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) return STARTING_CREDITS
+  return Math.min(MAX_BANKROLL, Math.max(MIN_BANKROLL, Math.round(parsed / COIN_VALUE) * COIN_VALUE))
 }
 
 function PlayingCard({
@@ -116,7 +132,11 @@ function Confetti() {
 }
 
 function App() {
-  const [credits, setCredits] = useState(() => loadNumber('mirage-credits-v2', STARTING_CREDITS))
+  const [startingBankroll, setStartingBankroll] = useState(() => loadNumber('mirage-bankroll-choice', STARTING_CREDITS))
+  const [credits, setCredits] = useState(() => loadNumber('mirage-credits-v3', STARTING_CREDITS))
+  const [bankrollConfigured, setBankrollConfigured] = useState(() => window.localStorage.getItem('mirage-bankroll-ready') === 'true')
+  const [bankrollOpen, setBankrollOpen] = useState(() => window.localStorage.getItem('mirage-bankroll-ready') !== 'true')
+  const [bankrollDraft, setBankrollDraft] = useState(() => String(loadNumber('mirage-bankroll-choice', STARTING_CREDITS)))
   const [bet, setBet] = useState(1)
   const [phase, setPhase] = useState<Phase>('idle')
   const [hand, setHand] = useState<Card[]>([])
@@ -151,6 +171,7 @@ function App() {
   const levelProgress = xp % 250
   const winRate = stats.hands ? Math.round((stats.wins / stats.hands) * 100) : 0
   const rank = level >= 8 ? 'High Roller' : level >= 4 ? 'Card Sharp' : 'Rising Player'
+  const normalizedBankrollDraft = normalizeBankroll(bankrollDraft)
 
   const currentPreview = useMemo(() => (hand.length === 5 ? evaluateHand(hand) : null), [hand])
   const strategyAdvice = useMemo(
@@ -226,14 +247,15 @@ function App() {
   }, [muted])
 
   useEffect(() => {
-    window.localStorage.setItem('mirage-credits-v2', String(credits))
+    window.localStorage.setItem('mirage-credits-v3', String(credits))
+    window.localStorage.setItem('mirage-bankroll-choice', String(startingBankroll))
     window.localStorage.setItem('mirage-xp', String(xp))
     window.localStorage.setItem('mirage-hands', String(stats.hands))
     window.localStorage.setItem('mirage-wins', String(stats.wins))
     window.localStorage.setItem('mirage-best-v2', String(stats.best))
     window.localStorage.setItem('mirage-muted', String(muted))
     window.localStorage.setItem('mirage-coach', String(coachMode))
-  }, [coachMode, credits, muted, stats, xp])
+  }, [coachMode, credits, muted, startingBankroll, stats, xp])
 
   useEffect(() => {
     if (!toast) return
@@ -358,14 +380,55 @@ function App() {
   }
 
   const refill = () => {
-    setCredits(STARTING_CREDITS)
-    setToast('Free-play wallet refilled')
-    playSound('win')
+    setCredits(startingBankroll)
+    setToast(`Wallet restored to $${formatCredits(startingBankroll)}`)
+    playSound('coin')
+  }
+
+  const openBankrollPicker = () => {
+    setBankrollDraft(String(startingBankroll))
+    setBankrollOpen(true)
+    playSound('tap')
+  }
+
+  const closeBankrollPicker = () => {
+    if (!bankrollConfigured) return
+    setBankrollDraft(String(startingBankroll))
+    setBankrollOpen(false)
+  }
+
+  const applyStartingBankroll = () => {
+    const nextBankroll = normalizeBankroll(bankrollDraft)
+    setStartingBankroll(nextBankroll)
+    setCredits(nextBankroll)
+    setBankrollDraft(String(nextBankroll))
+    setBankrollConfigured(true)
+    setBankrollOpen(false)
+    setBet(1)
+    setPhase('idle')
+    setHand([])
+    setDeck([])
+    setHolds([false, false, false, false, false])
+    setResult(null)
+    setRecentWin(0)
+    setStreak(0)
+    setMissionWins(0)
+    setMissionClaimed(false)
+    setStats({ hands: 0, wins: 0, best: 0 })
+    setDoubleOpen(false)
+    setDoubleCard(null)
+    setDoubleReveal(false)
+    setDoubleCount(0)
+    setShowConfetti(false)
+    setReplacing(false)
+    window.localStorage.setItem('mirage-bankroll-ready', 'true')
+    setToast(`Your $${formatCredits(nextBankroll)} table is ready`)
+    playSound('coin')
   }
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (howToOpen || doubleOpen) return
+      if (bankrollOpen || howToOpen || doubleOpen) return
       if (event.key >= '1' && event.key <= '5') toggleHold(Number(event.key) - 1)
       if (event.key.toLowerCase() === 'm' && phase !== 'dealt') setBet(5)
       if (event.code === 'Space') {
@@ -375,7 +438,7 @@ function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [doubleOpen, handlePrimary, howToOpen, phase, toggleHold])
+  }, [bankrollOpen, doubleOpen, handlePrimary, howToOpen, phase, toggleHold])
 
   return (
     <main className="game-shell">
@@ -423,10 +486,10 @@ function App() {
       </header>
 
       <section className="bank-strip" aria-label="Player balance and session status">
-        <div className="balance-block">
-          <small>BALANCE</small>
+        <button className="balance-block balance-button" onClick={openBankrollPicker} aria-label={`Balance $${formatCredits(credits)}. Choose a new starting balance.`}>
+          <small>BALANCE <span>CHANGE</span></small>
           <strong><i>$</i>{formatCredits(credits)}</strong>
-        </div>
+        </button>
         <span className="bank-divider" />
         <div className="mini-stat">
           <Flame size={17} />
@@ -622,6 +685,51 @@ function App() {
       </footer>
 
       {toast && <div className="toast" role="status"><Sparkles size={16} /> {toast}</div>}
+
+      {bankrollOpen && (
+        <div className="modal-backdrop bankroll-backdrop" onMouseDown={closeBankrollPicker}>
+          <section className="modal bankroll-modal" role="dialog" aria-modal="true" aria-labelledby="bankroll-title" onMouseDown={(event) => event.stopPropagation()}>
+            {bankrollConfigured && <button className="modal-close" onClick={closeBankrollPicker} aria-label="Close"><X /></button>}
+            <div className="bankroll-heading">
+              <span className="bankroll-mark"><WalletCards size={24} /></span>
+              <span><small className="modal-kicker">YOUR TABLE, YOUR STAKES</small><h2 id="bankroll-title">Choose your bankroll.</h2></span>
+            </div>
+            <p className="modal-lead">Pick how much free-play money sits on the table. It changes the pace of your session—not the odds.</p>
+            <div className="bankroll-options" role="group" aria-label="Starting bankroll presets">
+              {BANKROLL_OPTIONS.map((option) => (
+                <button
+                  key={option.amount}
+                  className={Number(bankrollDraft) === option.amount ? 'selected' : ''}
+                  onClick={() => { setBankrollDraft(String(option.amount)); playSound('tap') }}
+                  aria-pressed={Number(bankrollDraft) === option.amount}
+                >
+                  <span><b>${formatCredits(option.amount)}</b><small>{option.label}</small></span>
+                  <em>{option.hands}</em>
+                </button>
+              ))}
+            </div>
+            <label className="custom-bankroll">
+              <span><b>Custom bankroll</b><small>${formatCredits(MIN_BANKROLL)}–${formatCredits(MAX_BANKROLL)}, rounded to the nearest $100</small></span>
+              <i>$</i>
+              <input
+                type="number"
+                min={MIN_BANKROLL}
+                max={MAX_BANKROLL}
+                step={COIN_VALUE}
+                inputMode="numeric"
+                value={bankrollDraft}
+                onChange={(event) => setBankrollDraft(event.target.value)}
+                aria-label="Custom starting bankroll"
+              />
+            </label>
+            <div className="bankroll-reset-note"><Sparkles size={15} /> Choosing an amount starts a fresh table session. Your player level stays with you.</div>
+            <button className="modal-primary bankroll-start" onClick={applyStartingBankroll}>
+              <span><small>STARTING BALANCE</small><b>Play with ${formatCredits(normalizedBankrollDraft)}</b></span>
+              <ChevronRight size={22} />
+            </button>
+          </section>
+        </div>
+      )}
 
       {howToOpen && (
         <div className="modal-backdrop" onMouseDown={() => setHowToOpen(false)}>

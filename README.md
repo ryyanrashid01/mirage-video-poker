@@ -14,6 +14,7 @@ A polished, free-play Jacks or Better game built with React and Vite. Mirage com
 - Table Guide that compares all 32 hold choices
 - Exact odds for one- and two-card draws, with deterministic simulation for larger draws
 - Procedural card, chip, hold, win and jackpot sounds using the Web Audio API
+- Player-selected starting bankroll with a $10,000 default, presets and a custom option
 - Persistent free-play balance, XP, streaks and session statistics
 - Responsive keyboard, touch and mobile controls
 - Automated GitHub Pages deployment

@@ -285,6 +285,41 @@ a:focus-visible {
   flex-direction: column;
 }
 
+.balance-button {
+  margin-left: -9px;
+  padding: 7px 9px;
+  text-align: left;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.balance-button:hover {
+  background: rgba(231, 196, 119, 0.07);
+  transform: translateY(-1px);
+}
+
+.balance-button small {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.balance-button small span {
+  opacity: 0;
+  color: var(--gold);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  transition: opacity 160ms ease;
+}
+
+.balance-button:hover small span,
+.balance-button:focus-visible small span {
+  opacity: 0.85;
+}
+
 .balance-block small,
 .mini-stat small,
 .panel-heading small,
@@ -1364,6 +1399,217 @@ footer button {
   animation: modal-in 280ms cubic-bezier(.2, 1.15, .3, 1);
 }
 
+.bankroll-backdrop {
+  background:
+    radial-gradient(circle at 50% 45%, rgba(27, 92, 68, 0.28), transparent 42%),
+    rgba(2, 9, 7, 0.82);
+}
+
+.bankroll-modal {
+  width: min(650px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  padding: 32px;
+  background:
+    radial-gradient(circle at 84% 4%, rgba(231, 196, 119, 0.13), transparent 31%),
+    linear-gradient(145deg, #0c2a20, #081c16 72%);
+}
+
+.bankroll-heading {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.bankroll-mark {
+  width: 51px;
+  height: 55px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: #173026;
+  border: 1px solid #f2dc9d;
+  border-radius: 13px;
+  background: linear-gradient(145deg, #f5dfa5, #c99d49);
+  box-shadow: 0 10px 28px rgba(198, 151, 64, 0.18);
+  transform: rotate(-2deg);
+}
+
+.bankroll-heading > span:last-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.bankroll-heading h2 {
+  margin: 5px 0 0;
+  font-size: 30px;
+}
+
+.bankroll-modal > .modal-lead {
+  margin: 17px 0 19px;
+  font-size: 15px;
+}
+
+.bankroll-options {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.bankroll-options button {
+  min-width: 0;
+  min-height: 87px;
+  padding: 12px 7px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  color: rgba(248, 243, 231, 0.72);
+  text-align: center;
+  border: 1px solid rgba(231, 196, 119, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.bankroll-options button:hover {
+  border-color: rgba(231, 196, 119, 0.42);
+  background: rgba(231, 196, 119, 0.07);
+  transform: translateY(-2px);
+}
+
+.bankroll-options button.selected {
+  color: #14251e;
+  border-color: #f4dda0;
+  background: linear-gradient(145deg, #f5dfa6, #cfa451);
+  box-shadow: 0 8px 22px rgba(198, 151, 64, 0.16), inset 0 1px rgba(255, 255, 255, 0.45);
+}
+
+.bankroll-options button span {
+  display: flex;
+  flex-direction: column;
+}
+
+.bankroll-options button b {
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.bankroll-options button small {
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.bankroll-options button em {
+  color: rgba(248, 243, 231, 0.36);
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.bankroll-options button.selected em {
+  color: rgba(20, 37, 30, 0.58);
+}
+
+.custom-bankroll {
+  position: relative;
+  margin-top: 11px;
+  padding: 13px 14px;
+  display: grid;
+  grid-template-columns: 1fr 16px 160px;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(231, 196, 119, 0.14);
+  border-radius: 12px;
+  background: rgba(1, 12, 9, 0.27);
+}
+
+.custom-bankroll > span {
+  display: flex;
+  flex-direction: column;
+}
+
+.custom-bankroll b {
+  font-size: 13px;
+}
+
+.custom-bankroll small {
+  margin-top: 3px;
+  color: rgba(248, 243, 231, 0.38);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.custom-bankroll > i {
+  color: var(--gold);
+  font-size: 15px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.custom-bankroll input {
+  width: 100%;
+  height: 40px;
+  padding: 0 10px;
+  color: #fff5d8;
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid rgba(231, 196, 119, 0.28);
+  border-radius: 9px;
+  outline: 0;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.custom-bankroll input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(231, 196, 119, 0.1);
+}
+
+.bankroll-reset-note {
+  margin: 13px 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: rgba(248, 243, 231, 0.45);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.bankroll-reset-note svg {
+  flex: 0 0 auto;
+  color: var(--gold);
+}
+
+.bankroll-start {
+  height: 57px;
+  padding: 0 17px 0 19px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+}
+
+.bankroll-start span {
+  display: flex;
+  flex-direction: column;
+}
+
+.bankroll-start small {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.bankroll-start b {
+  margin-top: 2px;
+  font-size: 16px;
+}
+
 .modal-close {
   position: absolute;
   top: 16px;
@@ -1737,6 +1983,15 @@ footer button {
     min-width: 115px;
   }
 
+  .balance-button {
+    margin-left: -7px;
+    padding-inline: 7px;
+  }
+
+  .balance-button small span {
+    display: none;
+  }
+
   .balance-block strong {
     font-size: 22px;
   }
@@ -1930,6 +2185,10 @@ footer button {
     border-radius: 20px;
   }
 
+  .modal-backdrop {
+    padding: 12px;
+  }
+
   .modal h2 {
     padding-right: 32px;
     font-size: 23px;
@@ -1937,6 +2196,60 @@ footer button {
 
   .double-modal h2 {
     padding-right: 0;
+  }
+
+  .bankroll-modal {
+    max-height: calc(100vh - 24px);
+    padding: 24px 17px 18px;
+  }
+
+  .bankroll-heading {
+    gap: 11px;
+  }
+
+  .bankroll-mark {
+    width: 45px;
+    height: 49px;
+  }
+
+  .bankroll-heading h2 {
+    padding-right: 0;
+    font-size: 24px;
+  }
+
+  .bankroll-modal > .modal-lead {
+    margin-block: 14px 16px;
+    font-size: 13px;
+  }
+
+  .bankroll-options {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .bankroll-options button {
+    min-height: 64px;
+    padding: 9px 7px;
+  }
+
+  .bankroll-options button:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .bankroll-options button em {
+    display: none;
+  }
+
+  .custom-bankroll {
+    grid-template-columns: 16px 1fr;
+    padding: 11px;
+  }
+
+  .custom-bankroll > span {
+    grid-column: 1 / -1;
+  }
+
+  .bankroll-reset-note {
+    align-items: flex-start;
   }
 
   .toast {
