@@ -1,5 +1,11 @@
 # Mirage Video Poker
 
+[![Deploy game to GitHub Pages](https://github.com/ryyanrashid01/mirage-video-poker/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/ryyanrashid01/mirage-video-poker/actions/workflows/deploy-pages.yml)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=071511)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)](https://vite.dev/)
+[![Bun](https://img.shields.io/badge/Bun-1.x-FBF0DF?logo=bun&logoColor=14151A)](https://bun.sh/)
+
 A polished, free-play Jacks or Better game built with React and Vite. Mirage combines a classic deal–hold–draw loop with modern cards, responsive casino presentation, progression, missions, a double-or-nothing side game, and an optional Strategy Coach.
 
 ## Highlights
