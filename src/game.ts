@@ -254,7 +254,7 @@ function describeRecommendation(hand: Card[], option: StrategyOption): { holdLab
   }
   return {
     holdLabel,
-    explanation: `These ${held.length} cards keep the most valuable high-card and straight possibilities alive while releasing weak kickers.`,
+    explanation: `${held.length === 1 ? 'This card keeps' : `These ${held.length} cards keep`} the most valuable high-card and straight possibilities alive while releasing weak kickers.`,
   }
 }
 

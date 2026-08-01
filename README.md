@@ -6,12 +6,12 @@
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)](https://vite.dev/)
 [![Bun](https://img.shields.io/badge/Bun-1.x-FBF0DF?logo=bun&logoColor=14151A)](https://bun.sh/)
 
-A polished, free-play Jacks or Better game built with React and Vite. Mirage combines a classic deal–hold–draw loop with modern cards, responsive casino presentation, progression, missions, a double-or-nothing side game, and an optional Strategy Coach.
+A polished, free-play Jacks or Better game built with React and Vite. Mirage combines a classic deal–hold–draw loop with modern cards, responsive casino presentation, progression, missions, a double-or-nothing side game, and an optional Table Guide.
 
 ## Highlights
 
 - Complete Jacks or Better hand evaluation and bet-sensitive paytable
-- Strategy Coach that compares all 32 hold choices
+- Table Guide that compares all 32 hold choices
 - Exact odds for one- and two-card draws, with deterministic simulation for larger draws
 - Procedural card, chip, hold, win and jackpot sounds using the Web Audio API
 - Persistent free-play balance, XP, streaks and session statistics
@@ -32,9 +32,9 @@ bun run build
 bun run lint
 ```
 
-## Strategy Coach
+## Table Guide
 
-Turn on **Coach** before or during a hand. After the deal, it evaluates every possible hold, highlights the recommended cards and explains:
+Turn on **Guide** before or during a hand. After the deal, it evaluates every possible hold, highlights the recommended cards and explains:
 
 - the best cards to keep;
 - the chance of finishing with a paying hand;

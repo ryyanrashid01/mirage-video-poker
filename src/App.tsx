@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
   BadgeHelp,
-  BrainCircuit,
   ChevronRight,
   CircleDollarSign,
   Flame,
   Gift,
   Info,
+  Lightbulb,
   Sparkles,
   Target,
   Trophy,
@@ -31,8 +31,10 @@ import {
 type Phase = 'idle' | 'dealt' | 'settled'
 type Stats = { hands: number; wins: number; best: number }
 
-const COIN_VALUE = 5
-const STARTING_CREDITS = 1200
+const COIN_VALUE = 100
+const BET_OPTIONS = [1, 2, 3, 5]
+const STARTING_CREDITS = 120_000
+const MISSION_REWARD = 10_000
 const EMPTY_CARDS = Array.from({ length: 5 }, (_, index) => index)
 
 function loadNumber(key: string, fallback: number) {
@@ -114,7 +116,7 @@ function Confetti() {
 }
 
 function App() {
-  const [credits, setCredits] = useState(() => loadNumber('mirage-credits', STARTING_CREDITS))
+  const [credits, setCredits] = useState(() => loadNumber('mirage-credits-v2', STARTING_CREDITS))
   const [bet, setBet] = useState(1)
   const [phase, setPhase] = useState<Phase>('idle')
   const [hand, setHand] = useState<Card[]>([])
@@ -129,7 +131,7 @@ function App() {
   const [stats, setStats] = useState<Stats>(() => ({
     hands: loadNumber('mirage-hands', 0),
     wins: loadNumber('mirage-wins', 0),
-    best: loadNumber('mirage-best', 0),
+    best: loadNumber('mirage-best-v2', 0),
   }))
   const [muted, setMuted] = useState(() => window.localStorage.getItem('mirage-muted') === 'true')
   const [coachMode, setCoachMode] = useState(() => window.localStorage.getItem('mirage-coach') === 'true')
@@ -224,11 +226,11 @@ function App() {
   }, [muted])
 
   useEffect(() => {
-    window.localStorage.setItem('mirage-credits', String(credits))
+    window.localStorage.setItem('mirage-credits-v2', String(credits))
     window.localStorage.setItem('mirage-xp', String(xp))
     window.localStorage.setItem('mirage-hands', String(stats.hands))
     window.localStorage.setItem('mirage-wins', String(stats.wins))
-    window.localStorage.setItem('mirage-best', String(stats.best))
+    window.localStorage.setItem('mirage-best-v2', String(stats.best))
     window.localStorage.setItem('mirage-muted', String(muted))
     window.localStorage.setItem('mirage-coach', String(coachMode))
   }, [coachMode, credits, muted, stats, xp])
@@ -284,14 +286,14 @@ function App() {
         setCredits((value) => value + payout)
         setStreak((value) => value + 1)
         setXp((value) => value + 25 + Math.min(75, nextResult.multiplier * 3))
-        setToast(`${nextResult.label}! +${formatCredits(payout)} credits`)
+        setToast(`${nextResult.label}! +$${formatCredits(payout)}`)
         setShowConfetti(nextResult.multiplier >= 4)
         setMissionWins((current) => {
           const next = Math.min(3, current + 1)
           if (next === 3 && !missionClaimed) {
             setMissionClaimed(true)
-            setCredits((value) => value + 100)
-            window.setTimeout(() => setToast('Mission complete · +100 bonus credits'), 650)
+            setCredits((value) => value + MISSION_REWARD)
+            window.setTimeout(() => setToast(`Mission complete · +$${formatCredits(MISSION_REWARD)}`), 650)
           }
           return next
         })
@@ -341,7 +343,7 @@ function App() {
         setRecentWin(doubled)
         setStats((current) => ({ ...current, best: Math.max(current.best, doubled) }))
         setDoubleCount((value) => value + 1)
-        setToast(`Double up! +${formatCredits(doubled)} credits`)
+        setToast(`Double up! +$${formatCredits(doubled)}`)
         setShowConfetti(true)
         window.setTimeout(() => setShowConfetti(false), 1600)
         playSound('bigWin')
@@ -404,12 +406,12 @@ function App() {
             className={`coach-toggle ${coachMode ? 'active' : ''}`}
             onClick={() => {
               setCoachMode((value) => !value)
-              setToast(coachMode ? 'Strategy Coach turned off' : 'Strategy Coach is ready to help')
+              setToast(coachMode ? 'Table Guide turned off' : 'Table Guide is ready to help')
               playSound('tap')
             }}
             aria-pressed={coachMode}
           >
-            <BrainCircuit size={18} /> <span>Coach</span><i>{coachMode ? 'ON' : 'OFF'}</i>
+            <Lightbulb size={18} /> <span>Guide</span><i>{coachMode ? 'ON' : 'OFF'}</i>
           </button>
           <button className="icon-button" onClick={() => setMuted((value) => !value)} aria-label={muted ? 'Turn sound on' : 'Mute sound'}>
             {muted ? <VolumeX size={19} /> : <Volume2 size={19} />}
@@ -423,7 +425,7 @@ function App() {
       <section className="bank-strip" aria-label="Player balance and session status">
         <div className="balance-block">
           <small>BALANCE</small>
-          <strong><i>¢</i>{formatCredits(credits)}</strong>
+          <strong><i>$</i>{formatCredits(credits)}</strong>
         </div>
         <span className="bank-divider" />
         <div className="mini-stat">
@@ -432,7 +434,7 @@ function App() {
         </div>
         <div className="mini-stat desktop-stat">
           <Trophy size={17} />
-          <span><small>BEST WIN</small><b>{formatCredits(stats.best)} cr</b></span>
+          <span><small>BEST WIN</small><b>${formatCredits(stats.best)}</b></span>
         </div>
         <div className="session-chip">FREE PLAY</div>
       </section>
@@ -453,11 +455,11 @@ function App() {
             {PAYTABLE.map((row) => (
               <div className={`pay-row ${result?.key === row.key ? 'active' : ''}`} key={row.key}>
                 <span>{row.label}</span>
-                <b>{formatCredits(displayPayout(row, bet) * COIN_VALUE)}</b>
+                <b>${formatCredits(displayPayout(row, bet) * COIN_VALUE)}</b>
               </div>
             ))}
           </div>
-          <div className="max-note"><Sparkles size={14} /> Max bet unlocks the 4,000× royal</div>
+          <div className="max-note"><Sparkles size={14} /> $500 max bet unlocks the $400,000 royal</div>
         </aside>
 
         <section className={`table-stage ${strategyAdvice ? 'coach-active' : ''}`} aria-label="Poker table">
@@ -487,57 +489,62 @@ function App() {
           <div className="table-instruction">
             {phase === 'idle' && 'Set your bet, then deal a hand'}
             {phase === 'dealt' && `${cardsHeld ? `${cardsHeld} held` : 'Tap cards to hold'} · Draw ${5 - cardsHeld}`}
-            {phase === 'settled' && (recentWin ? `${formatCredits(recentWin)} credits added to your balance` : 'New hand, new luck')}
+            {phase === 'settled' && (recentWin ? `$${formatCredits(recentWin)} added to your balance` : 'New hand, new luck')}
           </div>
 
           {strategyAdvice && selectedStrategy && (
             <section className="strategy-coach" aria-live="polite">
-              <div className="coach-heading">
-                <span className="coach-orb"><BrainCircuit size={19} /></span>
-                <span><small>STRATEGY COACH</small><b>{strategyAdvice.holdLabel}</b></span>
-                <em>{strategyAdvice.recommended.exact ? 'Exact odds' : `${formatCredits(strategyAdvice.recommended.samples)} draws`}</em>
+              <div className="guide-note">
+                <span className="guide-seal">♠</span>
+                <div className="coach-heading">
+                  <span><small>TABLE GUIDE</small><b>{strategyAdvice.holdLabel}</b></span>
+                  <em>{strategyAdvice.recommended.exact ? 'Exact combinations' : `${formatCredits(strategyAdvice.recommended.samples)} sampled deals`}</em>
+                </div>
+                <p>{strategyAdvice.explanation}</p>
               </div>
-              <p>{strategyAdvice.explanation}</p>
               <div className="coach-metrics">
-                <span><small>PAYOUT CHANCE</small><b>{(strategyAdvice.recommended.winChance * 100).toFixed(1)}%</b></span>
-                <span><small>EXPECTED BACK</small><b>{Math.round(strategyAdvice.recommended.expectedReturn * 100)}% of bet</b></span>
+                <span><b>{(strategyAdvice.recommended.winChance * 100).toFixed(1)}%</b><small>chance to pay</small></span>
+                <span><b>{Math.round(strategyAdvice.recommended.expectedReturn * 100)}%</b><small>expected back</small></span>
                 <span className="odds-breakdown">
-                  <small>LIKELY PAYOUTS</small>
+                  <small>MOST LIKELY WINS</small>
                   <b>
                     {strategyAdvice.recommended.outcomes.slice(0, 3).map((outcome) => (
                       <i key={outcome.key}>{outcome.label} <strong>{(outcome.chance * 100).toFixed(outcome.chance < 0.01 ? 1 : 0)}%</strong></i>
                     ))}
                   </b>
                 </span>
+                {selectedStrategy.mask !== strategyAdvice.recommended.mask && (
+                  <button className="apply-guide" onClick={() => { setHolds(strategyAdvice.recommended.holds); playSound('hold'); buzz() }}>
+                    Use this hold
+                  </button>
+                )}
               </div>
               <div className={`choice-check ${selectedStrategy.mask === strategyAdvice.recommended.mask ? 'best' : ''}`}>
                 <span>
                   {selectedStrategy.mask === strategyAdvice.recommended.mask
-                    ? 'You’re on the best line.'
+                    ? 'Good choice—you’re on the strongest line.'
                     : `Your current holds return about ${Math.round(selectedStrategy.expectedReturn * 100)}% of the bet.`}
                 </span>
-                {selectedStrategy.mask !== strategyAdvice.recommended.mask && (
-                  <button onClick={() => { setHolds(strategyAdvice.recommended.holds); playSound('hold'); buzz() }}>
-                    Apply best hold
-                  </button>
-                )}
+                <details className="guide-method">
+                  <summary>How is this worked out?</summary>
+                  <small>It uses every theoretically unseen card, never the hidden deck order. Large draws use stable simulations.</small>
+                </details>
               </div>
-              <small className="coach-disclaimer">Probabilities use every unseen card—not the hidden deck order. Complex draws are simulated and may vary slightly from exact odds.</small>
             </section>
           )}
 
           <div className="bet-console">
             <div className="bet-picker">
               <span className="control-label">BET</span>
-              <div className="coin-options" role="group" aria-label="Bet coins">
-                {[1, 2, 3, 4, 5].map((coin) => (
+              <div className="coin-options" role="group" aria-label="Bet amount">
+                {BET_OPTIONS.map((coin) => (
                   <button
                     key={coin}
                     className={bet === coin ? 'selected' : ''}
                     onClick={() => { setBet(coin); playSound('tap') }}
                     disabled={phase === 'dealt'}
-                    aria-label={`Bet ${coin} coin${coin > 1 ? 's' : ''}`}
-                  >{coin}</button>
+                    aria-label={`Bet $${formatCredits(coin * COIN_VALUE)}`}
+                  >${formatCredits(coin * COIN_VALUE)}</button>
                 ))}
               </div>
               <button className="max-bet" disabled={phase === 'dealt'} onClick={() => { setBet(5); playSound('tap') }}>
@@ -547,7 +554,7 @@ function App() {
 
             <button className="primary-action" onClick={handlePrimary} disabled={replacing}>
               <span>
-                <small>{phase === 'dealt' ? `${cardsHeld} CARDS HELD` : `${bet} COIN${bet > 1 ? 'S' : ''} · ${wager} CR`}</small>
+                <small>{phase === 'dealt' ? `${cardsHeld} CARDS HELD` : `$${formatCredits(wager)} BET`}</small>
                 <b>{phase === 'dealt' ? 'DRAW' : phase === 'settled' ? 'DEAL AGAIN' : 'DEAL'}</b>
               </span>
               <ChevronRight size={24} />
@@ -582,7 +589,7 @@ function App() {
             </div>
             <div className="reward-line">
               <span><Gift size={16} /> Reward</span>
-              <b>{missionClaimed ? 'Claimed!' : '+100 credits'}</b>
+              <b>{missionClaimed ? 'Claimed!' : `+$${formatCredits(MISSION_REWARD)}`}</b>
             </div>
           </section>
 
@@ -624,7 +631,7 @@ function App() {
             <h2 id="rules-title">Make the best five-card hand.</h2>
             <p className="modal-lead">Deal five cards, hold the ones you like, then draw once to replace the rest. Jacks or better starts the payouts.</p>
             <div className="rule-steps">
-              <span><i>1</i><b>Set a bet</b><small>Choose 1–5 coins. Five coins unlocks the full royal bonus.</small></span>
+              <span><i>1</i><b>Set a bet</b><small>Choose $100, $200, $300 or $500. The $500 bet unlocks the full royal bonus.</small></span>
               <span><i>2</i><b>Hold cards</b><small>Tap any cards worth keeping. You can hold all five—or none.</small></span>
               <span><i>3</i><b>Draw once</b><small>Unheld cards are replaced and your final hand pays automatically.</small></span>
             </div>
@@ -633,8 +640,8 @@ function App() {
               <span><b>Feeling lucky?</b><small>After a win, risk it on red or black to double the prize. You can try up to three times.</small></span>
             </div>
             <div className="double-explainer coach-explainer">
-              <BrainCircuit size={22} />
-              <span><b>Learn while you play</b><small>Turn on Strategy Coach to see the strongest hold, payout probability and expected return for each hand.</small></span>
+              <Lightbulb size={22} />
+              <span><b>Learn while you play</b><small>Turn on Table Guide to see the strongest hold, payout probability and expected return for each hand.</small></span>
             </div>
             <button className="modal-primary" onClick={() => setHowToOpen(false)}>Got it — let's play</button>
           </section>
@@ -646,7 +653,7 @@ function App() {
           <section className="modal double-modal" role="dialog" aria-modal="true" aria-labelledby="double-title">
             <span className="modal-kicker"><Zap size={14} /> DOUBLE OR NOTHING</span>
             <h2 id="double-title">Red or black?</h2>
-            <p>Guess the hidden card and turn <b>{formatCredits(recentWin)}</b> into <b>{formatCredits(recentWin * 2)} credits.</b></p>
+            <p>Guess the hidden card and turn <b>${formatCredits(recentWin)}</b> into <b>${formatCredits(recentWin * 2)}.</b></p>
             <div className={`mystery-card ${doubleReveal ? 'revealed' : ''}`}>
               <div className="mystery-inner">
                 <div className="mystery-front"><PlayingCard card={doubleCard} index={0} /></div>
