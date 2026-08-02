@@ -8,7 +8,6 @@ import {
   Info,
   Lightbulb,
   Sparkles,
-  Target,
   Trophy,
   Volume2,
   VolumeX,
@@ -44,7 +43,6 @@ const BANKROLL_OPTIONS = [
   { amount: 50_000, label: 'High roller', hands: '100+ max-bet hands' },
   { amount: 100_000, label: 'Big table', hands: '200+ max-bet hands' },
 ]
-const MISSION_REWARD = 10_000
 const EMPTY_CARDS = Array.from({ length: 5 }, (_, index) => index)
 
 function loadNumber(key: string, fallback: number) {
@@ -150,8 +148,6 @@ function App() {
   const [recentWin, setRecentWin] = useState(0)
   const [lastWager, setLastWager] = useState(0)
   const [streak, setStreak] = useState(0)
-  const [missionWins, setMissionWins] = useState(0)
-  const [missionClaimed, setMissionClaimed] = useState(false)
   const [xp, setXp] = useState(() => loadNumber('mirage-xp', 85))
   const [stats, setStats] = useState<Stats>(() => ({
     hands: loadNumber('mirage-hands', 0),
@@ -320,15 +316,6 @@ function App() {
           ? `${displayHandLabel(nextResult)}! $${formatCredits(payout)} paid · +$${formatCredits(netProfit)} net`
           : `${displayHandLabel(nextResult)}! $${formatCredits(payout)} returned · bet covered`)
         setShowConfetti(nextResult.multiplier >= 4)
-        setMissionWins((current) => {
-          const next = Math.min(3, current + 1)
-          if (next === 3 && !missionClaimed) {
-            setMissionClaimed(true)
-            setCredits((value) => value + MISSION_REWARD)
-            window.setTimeout(() => setToast(`Mission complete · +$${formatCredits(MISSION_REWARD)}`), 650)
-          }
-          return next
-        })
         playSound(nextResult.multiplier >= 4 ? 'bigWin' : 'win')
         buzz()
         window.setTimeout(() => setShowConfetti(false), 2200)
@@ -339,7 +326,7 @@ function App() {
         playSound('lose')
       }
     }, 270)
-  }, [bet, buzz, deck, hand, holds, missionClaimed, phase, playSound, wager])
+  }, [bet, buzz, deck, hand, holds, phase, playSound, wager])
 
   const handlePrimary = useCallback(() => {
     if (phase === 'dealt') draw()
@@ -423,8 +410,6 @@ function App() {
     setRecentWin(0)
     setLastWager(0)
     setStreak(0)
-    setMissionWins(0)
-    setMissionClaimed(false)
     setStats({ hands: 0, wins: 0, best: 0 })
     setDoubleOpen(false)
     setDoubleCard(null)
@@ -612,8 +597,16 @@ function App() {
           )}
 
           <div className="bet-console">
-            <div className="bet-picker">
-              <span className="control-label">BET</span>
+            <div className="wager-panel">
+              <div className="wager-heading">
+                <span>
+                  <small>TABLE WAGER</small>
+                  <b>${formatCredits(wager)} <i>{bet === 5 ? 'MAX BET' : 'PER HAND'}</i></b>
+                </span>
+                <button className={`max-bet ${bet === 5 ? 'selected' : ''}`} disabled={phase === 'dealt'} onClick={() => { setBet(5); playSound('tap') }}>
+                  <Sparkles size={13} /> MAX
+                </button>
+              </div>
               <div className="coin-options" role="group" aria-label="Bet amount">
                 {BET_OPTIONS.map((coin) => (
                   <button
@@ -622,55 +615,36 @@ function App() {
                     onClick={() => { setBet(coin); playSound('tap') }}
                     disabled={phase === 'dealt'}
                     aria-label={`Bet $${formatCredits(coin * COIN_VALUE)}`}
-                  >${formatCredits(coin * COIN_VALUE)}</button>
+                  ><i aria-hidden="true" /><b>${formatCredits(coin * COIN_VALUE)}</b></button>
                 ))}
               </div>
-              <button className="max-bet" disabled={phase === 'dealt'} onClick={() => { setBet(5); playSound('tap') }}>
-                MAX
-              </button>
+              <div className="win-actions">
+                {phase === 'settled' && recentWin > 0 ? (
+                  <>
+                    <button className="double-button" onClick={startDouble} disabled={doubleCount >= 3}>
+                      <Zap size={16} /> Double
+                    </button>
+                    <span>{doubleCount}/3 tries</span>
+                  </>
+                ) : credits < wager ? (
+                  <button className="refill-button" onClick={refill}><Gift size={16} /> Free refill</button>
+                ) : (
+                  <span className="shortcut-hint"><kbd>SPACE</kbd> deal · <kbd>1–5</kbd> hold</span>
+                )}
+              </div>
             </div>
 
             <button className="primary-action" onClick={handlePrimary} disabled={replacing}>
               <span>
-                <small>{phase === 'dealt' ? `${cardsHeld} CARDS HELD` : `$${formatCredits(wager)} BET`}</small>
+                <small>{phase === 'dealt' ? `${cardsHeld} HELD · ${5 - cardsHeld} TO DRAW` : phase === 'settled' ? `NEXT HAND · $${formatCredits(wager)}` : `PLAY $${formatCredits(wager)}`}</small>
                 <b>{phase === 'dealt' ? 'DRAW' : phase === 'settled' ? 'DEAL AGAIN' : 'DEAL'}</b>
               </span>
-              <ChevronRight size={24} />
+              <i className="action-arrow"><ChevronRight size={22} /></i>
             </button>
-
-            <div className="win-actions">
-              {phase === 'settled' && recentWin > 0 ? (
-                <>
-                  <button className="double-button" onClick={startDouble} disabled={doubleCount >= 3}>
-                    <Zap size={16} /> Double
-                  </button>
-                  <span>{doubleCount}/3 tries</span>
-                </>
-              ) : credits < wager ? (
-                <button className="refill-button" onClick={refill}><Gift size={16} /> Free refill</button>
-              ) : (
-                <span className="shortcut-hint"><kbd>SPACE</kbd> deal · <kbd>1–5</kbd> hold</span>
-              )}
-            </div>
           </div>
         </section>
 
         <aside className="right-rail">
-          <section className="panel mission-panel">
-            <div className="panel-heading compact">
-              <span><small>TONIGHT'S MISSION</small><h2>Hot Hand</h2></span>
-              <Target size={18} />
-            </div>
-            <p>Win three hands in this session.</p>
-            <div className="mission-progress">
-              {[0, 1, 2].map((index) => <i key={index} className={missionWins > index ? 'done' : ''}>{missionWins > index ? '✓' : index + 1}</i>)}
-            </div>
-            <div className="reward-line">
-              <span><Gift size={16} /> Reward</span>
-              <b>{missionClaimed ? 'Claimed!' : `+$${formatCredits(MISSION_REWARD)}`}</b>
-            </div>
-          </section>
-
           <section className="panel stats-panel">
             <div className="panel-heading compact">
               <span><small>YOUR TABLE</small><h2>Session</h2></span>

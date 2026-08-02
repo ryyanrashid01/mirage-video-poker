@@ -6,7 +6,7 @@
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)](https://vite.dev/)
 [![Bun](https://img.shields.io/badge/Bun-1.x-FBF0DF?logo=bun&logoColor=14151A)](https://bun.sh/)
 
-A polished, free-play Jacks or Better game built with React and Vite. Mirage combines a classic deal–hold–draw loop with modern cards, responsive casino presentation, progression, missions, a double-or-nothing side game, and an optional Table Guide.
+A polished, free-play Jacks or Better game built with React and Vite. Mirage combines a classic deal–hold–draw loop with modern cards, responsive casino presentation, progression, a double-or-nothing side game, and an optional Table Guide.
 
 ## Highlights
 
