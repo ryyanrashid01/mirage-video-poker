@@ -23,6 +23,8 @@ export type HandResult = {
   key: HandKey
   label: string
   multiplier: number
+  detail?: string
+  displayLabel?: string
 }
 
 export type StrategyOutcome = {
@@ -58,7 +60,7 @@ export const PAYTABLE: Array<{ key: HandKey; label: string; multiplier: number }
   { key: 'straight', label: 'Straight', multiplier: 4 },
   { key: 'threeKind', label: 'Three of a kind', multiplier: 3 },
   { key: 'twoPair', label: 'Two pair', multiplier: 2 },
-  { key: 'jacksOrBetter', label: 'Jacks or better', multiplier: 1 },
+  { key: 'jacksOrBetter', label: 'Pair of Jacks or better', multiplier: 1 },
 ]
 
 export const SUIT_SYMBOL: Record<Suit, string> = {
@@ -73,6 +75,20 @@ const RANKS: Rank[] = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', '
 const RANK_VALUE: Record<Rank, number> = {
   '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8,
   '9': 9, '10': 10, J: 11, Q: 12, K: 13, A: 14,
+}
+
+const RANK_FROM_VALUE = Object.fromEntries(
+  Object.entries(RANK_VALUE).map(([rank, value]) => [value, rank]),
+) as Record<number, Rank>
+
+const RANK_NAME: Record<Rank, string> = {
+  '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9', '10': '10',
+  J: 'Jack', Q: 'Queen', K: 'King', A: 'Ace',
+}
+
+const RANK_PAIR_NAME: Record<Rank, string> = {
+  '2': '2s', '3': '3s', '4': '4s', '5': '5s', '6': '6s', '7': '7s', '8': '8s', '9': '9s', '10': '10s',
+  J: 'Jacks', Q: 'Queens', K: 'Kings', A: 'Aces',
 }
 
 export function createDeck(): Card[] {
@@ -122,10 +138,34 @@ export function evaluateHand(hand: Card[]): HandResult {
       return acc
     }, {}),
   )
-  const qualifyingPair = pairs.some(([value, count]) => count === 2 && Number(value) >= 11)
-  if (qualifyingPair) return { key: 'jacksOrBetter', label: 'Jacks or better', multiplier: 1 }
+  const pair = pairs.find(([, count]) => count === 2)
+  if (pair && Number(pair[0]) >= 11) {
+    const pairRank = RANK_FROM_VALUE[Number(pair[0])]
+    return {
+      key: 'jacksOrBetter',
+      label: 'Pair of Jacks or better',
+      displayLabel: `Pair of ${RANK_PAIR_NAME[pairRank]}`,
+      multiplier: 1,
+    }
+  }
 
-  return { key: 'nothing', label: 'No win', multiplier: 0 }
+  if (pair) {
+    const pairRank = RANK_FROM_VALUE[Number(pair[0])]
+    return {
+      key: 'nothing',
+      label: `Pair of ${RANK_PAIR_NAME[pairRank]}`,
+      multiplier: 0,
+      detail: 'Only a pair of Jacks, Queens, Kings or Aces pays.',
+    }
+  }
+
+  const highRank = RANK_FROM_VALUE[values[4]]
+  return {
+    key: 'nothing',
+    label: `${RANK_NAME[highRank]} high`,
+    multiplier: 0,
+    detail: 'You need at least a pair of Jacks or better to win.',
+  }
 }
 
 export function calculatePayout(result: HandResult, coins: number, coinValue: number): number {
@@ -207,7 +247,7 @@ function describeRecommendation(hand: Card[], option: StrategyOption): { holdLab
   if (heldResult?.multiplier) {
     return {
       holdLabel,
-      explanation: `You already have ${heldResult.label.toLowerCase()}. Stand pat—the guaranteed payout beats every draw.`,
+      explanation: `You already have ${(heldResult.displayLabel ?? heldResult.label).toLowerCase()}. Stand pat—the guaranteed payout beats every draw.`,
     }
   }
 

@@ -1690,6 +1690,60 @@ footer button {
   background: rgba(231, 196, 119, 0.045);
 }
 
+.qualifying-pair {
+  margin-bottom: 9px;
+  padding: 13px;
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(231, 196, 119, 0.2);
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(231, 196, 119, 0.08), rgba(231, 196, 119, 0.025));
+}
+
+.pair-example {
+  display: flex;
+  gap: 5px;
+}
+
+.pair-example i {
+  width: 40px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  color: #17221e;
+  font-size: 15px;
+  font-style: normal;
+  font-weight: 800;
+  border-radius: 7px;
+  background: linear-gradient(145deg, #fffdf7, #e8e2d3);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.2);
+  transform: rotate(-3deg);
+}
+
+.pair-example i:last-child {
+  color: #c93b3e;
+  transform: rotate(3deg);
+}
+
+.qualifying-pair > span:last-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.qualifying-pair b {
+  color: #f5dda0;
+  font-size: 13px;
+}
+
+.qualifying-pair small {
+  margin-top: 3px;
+  color: rgba(248, 243, 231, 0.5);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .coach-explainer {
   margin-top: 9px;
   color: #8bd7bc;
@@ -2250,6 +2304,17 @@ footer button {
 
   .bankroll-reset-note {
     align-items: flex-start;
+  }
+
+  .qualifying-pair {
+    grid-template-columns: 74px 1fr;
+    gap: 9px;
+  }
+
+  .pair-example i {
+    width: 34px;
+    height: 44px;
+    font-size: 13px;
   }
 
   .toast {

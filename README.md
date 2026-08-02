@@ -11,6 +11,7 @@ A polished, free-play Jacks or Better game built with React and Vite. Mirage com
 ## Highlights
 
 - Complete Jacks or Better hand evaluation and bet-sensitive paytable
+- Exhaustive rules audit covering all 2,598,960 possible five-card hands
 - Table Guide that compares all 32 hold choices
 - Exact odds for one- and two-card draws, with deterministic simulation for larger draws
 - Procedural card, chip, hold, win and jackpot sounds using the Web Audio API
@@ -29,9 +30,14 @@ bun run dev
 Build and validate with:
 
 ```bash
+bun run audit:game
 bun run build
 bun run lint
 ```
+
+## Winning hands
+
+“Jacks or Better” means one matching pair of Jacks, Queens, Kings or Aces. A single high card does not pay, and pairs of 10s or lower do not pay. The standard 9/6 paytable returns 1× the wager for a qualifying high pair, so that result covers the bet with no net profit.
 
 ## Table Guide
 

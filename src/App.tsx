@@ -59,6 +59,10 @@ function normalizeBankroll(value: string | number) {
   return Math.min(MAX_BANKROLL, Math.max(MIN_BANKROLL, Math.round(parsed / COIN_VALUE) * COIN_VALUE))
 }
 
+function displayHandLabel(result: HandResult) {
+  return result.displayLabel ?? result.label
+}
+
 function PlayingCard({
   card,
   held,
@@ -144,6 +148,7 @@ function App() {
   const [holds, setHolds] = useState<boolean[]>([false, false, false, false, false])
   const [result, setResult] = useState<HandResult | null>(null)
   const [recentWin, setRecentWin] = useState(0)
+  const [lastWager, setLastWager] = useState(0)
   const [streak, setStreak] = useState(0)
   const [missionWins, setMissionWins] = useState(0)
   const [missionClaimed, setMissionClaimed] = useState(false)
@@ -172,6 +177,7 @@ function App() {
   const winRate = stats.hands ? Math.round((stats.wins / stats.hands) * 100) : 0
   const rank = level >= 8 ? 'High Roller' : level >= 4 ? 'Card Sharp' : 'Rising Player'
   const normalizedBankrollDraft = normalizeBankroll(bankrollDraft)
+  const netResult = recentWin - lastWager
 
   const currentPreview = useMemo(() => (hand.length === 5 ? evaluateHand(hand) : null), [hand])
   const strategyAdvice = useMemo(
@@ -276,6 +282,7 @@ function App() {
     setHolds([false, false, false, false, false])
     setResult(null)
     setRecentWin(0)
+    setLastWager(wager)
     setDoubleCount(0)
     setPhase('dealt')
     setToast('Pick the cards you want to keep')
@@ -305,10 +312,13 @@ function App() {
       }))
 
       if (payout > 0) {
+        const netProfit = payout - wager
         setCredits((value) => value + payout)
         setStreak((value) => value + 1)
         setXp((value) => value + 25 + Math.min(75, nextResult.multiplier * 3))
-        setToast(`${nextResult.label}! +$${formatCredits(payout)}`)
+        setToast(netProfit > 0
+          ? `${displayHandLabel(nextResult)}! $${formatCredits(payout)} paid · +$${formatCredits(netProfit)} net`
+          : `${displayHandLabel(nextResult)}! $${formatCredits(payout)} returned · bet covered`)
         setShowConfetti(nextResult.multiplier >= 4)
         setMissionWins((current) => {
           const next = Math.min(3, current + 1)
@@ -325,11 +335,11 @@ function App() {
       } else {
         setStreak(0)
         setXp((value) => value + 8)
-        setToast('No win this hand — the next one is yours')
+        setToast(nextResult.detail ?? 'No win this hand — the next one is yours')
         playSound('lose')
       }
     }, 270)
-  }, [bet, buzz, deck, hand, holds, missionClaimed, phase, playSound])
+  }, [bet, buzz, deck, hand, holds, missionClaimed, phase, playSound, wager])
 
   const handlePrimary = useCallback(() => {
     if (phase === 'dealt') draw()
@@ -411,6 +421,7 @@ function App() {
     setHolds([false, false, false, false, false])
     setResult(null)
     setRecentWin(0)
+    setLastWager(0)
     setStreak(0)
     setMissionWins(0)
     setMissionClaimed(false)
@@ -529,8 +540,8 @@ function App() {
           <div className="table-halo" />
           <div className={`hand-callout ${result && result.multiplier > 0 ? 'winner' : ''}`}>
             {phase === 'idle' && <><small>FIVE-CARD DRAW</small><b>Ready when you are</b></>}
-            {phase === 'dealt' && <><small>{currentPreview?.multiplier ? 'MADE HAND' : 'YOUR MOVE'}</small><b>{currentPreview?.multiplier ? currentPreview.label : 'Choose your holds'}</b></>}
-            {phase === 'settled' && result && <><small>{result.multiplier ? 'WINNING HAND' : 'FINAL HAND'}</small><b>{result.multiplier ? result.label : 'So close — deal again'}</b></>}
+            {phase === 'dealt' && <><small>{currentPreview?.multiplier ? 'MADE HAND' : 'YOUR MOVE'}</small><b>{currentPreview?.multiplier ? displayHandLabel(currentPreview) : 'Choose your holds'}</b></>}
+            {phase === 'settled' && result && <><small>{result.multiplier ? 'WINNING HAND' : 'NO PAYOUT'}</small><b>{displayHandLabel(result)}</b></>}
           </div>
 
           <div className="cards-row">
@@ -552,7 +563,11 @@ function App() {
           <div className="table-instruction">
             {phase === 'idle' && 'Set your bet, then deal a hand'}
             {phase === 'dealt' && `${cardsHeld ? `${cardsHeld} held` : 'Tap cards to hold'} · Draw ${5 - cardsHeld}`}
-            {phase === 'settled' && (recentWin ? `$${formatCredits(recentWin)} added to your balance` : 'New hand, new luck')}
+            {phase === 'settled' && result && (recentWin
+              ? netResult > 0
+                ? `$${formatCredits(recentWin)} paid · +$${formatCredits(netResult)} net profit`
+                : `$${formatCredits(recentWin)} returned · your bet is covered`
+              : result.multiplier ? 'Double-or-nothing wager lost · deal again' : result.detail)}
           </div>
 
           {strategyAdvice && selectedStrategy && (
@@ -737,11 +752,15 @@ function App() {
             <button className="modal-close" onClick={() => setHowToOpen(false)} aria-label="Close"><X /></button>
             <span className="modal-kicker">THE BASICS</span>
             <h2 id="rules-title">Make the best five-card hand.</h2>
-            <p className="modal-lead">Deal five cards, hold the ones you like, then draw once to replace the rest. Jacks or better starts the payouts.</p>
+            <p className="modal-lead">Deal five cards, hold the ones you like, then draw once to replace the rest. Your final five-card combination determines the payout.</p>
             <div className="rule-steps">
               <span><i>1</i><b>Set a bet</b><small>Choose $100, $200, $300 or $500. The $500 bet unlocks the full royal bonus.</small></span>
               <span><i>2</i><b>Hold cards</b><small>Tap any cards worth keeping. You can hold all five—or none.</small></span>
               <span><i>3</i><b>Draw once</b><small>Unheld cards are replaced and your final hand pays automatically.</small></span>
+            </div>
+            <div className="qualifying-pair">
+              <span className="pair-example"><i>Q♠</i><i>Q♦</i></span>
+              <span><b>“Jacks or Better” means a matching pair.</b><small>JJ, QQ, KK and AA pay. One Queen alone does not, and pairs of 10s or lower do not.</small></span>
             </div>
             <div className="double-explainer">
               <Zap size={22} />
