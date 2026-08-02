@@ -38,6 +38,15 @@ bun run build
 bun run lint
 ```
 
+## Architecture
+
+- `src/game/` contains the framework-independent deck, evaluator, payout and strategy engine.
+- `src/hooks/useVideoPoker.ts` owns game transitions and coordinates persistence, audio and autoplay.
+- `src/components/game/` renders the table, cards, paytable, strategy guide and wager controls.
+- `src/components/simulator/` contains autoplay controls and the live Recharts ledger.
+- `src/components/dialogs/` uses shared Radix-backed dialog primitives for accessible focus and keyboard behavior.
+- `src/components/layout/`, `feedback/` and `ui/` hold reusable presentation primitives.
+
 ## Winning hands
 
 “Jacks or Better” means one matching pair of Jacks, Queens, Kings or Aces. A single high card does not pay, and pairs of 10s or lower do not pay. The standard 9/6 paytable returns 1× the wager for a qualifying high pair, so that result covers the bet with no net profit.

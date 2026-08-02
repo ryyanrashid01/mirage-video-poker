@@ -1395,54 +1395,80 @@ a:focus-visible {
   background: var(--gold);
 }
 
-.top-four-toggle {
+.pause-setting {
   width: 100%;
   padding: 8px 9px;
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 3px 8px;
+  grid-template-columns: 26px 1fr auto;
+  gap: 8px;
+  align-items: center;
   color: rgba(248, 243, 231, 0.6);
   text-align: left;
   border: 1px solid rgba(231, 196, 119, 0.12);
   border-radius: 9px;
   background: rgba(255, 255, 255, 0.02);
-  cursor: pointer;
 }
 
-.top-four-toggle > span {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.pause-setting-icon {
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: rgba(231, 196, 119, 0.08);
 }
 
-.top-four-toggle svg {
+.pause-setting svg {
   color: var(--gold);
 }
 
-.top-four-toggle b {
+.pause-setting label {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+}
+
+.pause-setting b {
   font-size: 10px;
 }
 
-.top-four-toggle > i {
-  padding: 2px 4px;
+.pause-setting small {
+  margin-top: 2px;
   color: rgba(248, 243, 231, 0.3);
   font-size: 8px;
-  font-style: normal;
-  font-weight: 800;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.05);
 }
 
-.top-four-toggle.active > i {
-  color: #163027;
-  background: #7bcdb0;
+.ui-switch {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid rgba(248, 243, 231, 0.15);
+  border-radius: 999px;
+  background: rgba(248, 243, 231, 0.09);
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
 }
 
-.top-four-toggle > small {
-  grid-column: 1 / -1;
-  color: rgba(248, 243, 231, 0.3);
-  font-size: 8px;
-  line-height: 1.35;
+.ui-switch[data-state='checked'] {
+  border-color: rgba(123, 205, 176, 0.52);
+  background: #67b99b;
+}
+
+.ui-switch-thumb {
+  width: 14px;
+  height: 14px;
+  display: block;
+  border-radius: 50%;
+  background: rgba(248, 243, 231, 0.78);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.28);
+  transform: translateX(2px);
+  transition: transform 160ms cubic-bezier(.2, .9, .25, 1.2), background 160ms ease;
+}
+
+.ui-switch[data-state='checked'] .ui-switch-thumb {
+  background: #f6f0df;
+  transform: translateX(16px);
 }
 
 .autoplay-status {
@@ -1698,6 +1724,22 @@ footer button {
   background: rgba(2, 9, 7, 0.76);
   backdrop-filter: blur(12px);
   animation: fade-in 180ms ease;
+}
+
+.dialog-positioner {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  padding: 20px;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.dialog-positioner > .modal {
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  pointer-events: auto;
 }
 
 .modal {
