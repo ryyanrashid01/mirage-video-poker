@@ -6,7 +6,7 @@
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)](https://vite.dev/)
 [![Bun](https://img.shields.io/badge/Bun-1.x-FBF0DF?logo=bun&logoColor=14151A)](https://bun.sh/)
 
-A polished, free-play Jacks or Better game built with React and Vite. Mirage combines a classic deal–hold–draw loop with modern cards, responsive casino presentation, progression, a double-or-nothing side game, and an optional Table Guide.
+A polished, free-play Jacks or Better game and simulation tool built with React and Vite. Mirage combines a classic deal–hold–draw loop with modern cards, responsive casino presentation, strategy-driven autoplay, progression, a double-or-nothing side game, and an optional Table Guide.
 
 ## Highlights
 
@@ -14,6 +14,9 @@ A polished, free-play Jacks or Better game built with React and Vite. Mirage com
 - Exhaustive rules audit covering all 2,598,960 possible five-card hands
 - Table Guide that compares all 32 hold choices
 - Exact odds for one- and two-card draws, with deterministic simulation for larger draws
+- Strategy-driven autoplay with three speeds and optional pauses on the top four payouts
+- Live Recharts balance curve with hands, hit rate, total paid, wagered and net P/L
+- Automatic game over when the bankroll falls below the $100 minimum wager
 - Procedural card, chip, hold, win and jackpot sounds using the Web Audio API
 - Player-selected starting bankroll with a $10,000 default, presets and a custom option
 - Persistent free-play balance, XP, streaks and session statistics

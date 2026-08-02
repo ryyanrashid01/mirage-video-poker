@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
   BadgeHelp,
+  BarChart3,
   ChevronRight,
-  CircleDollarSign,
   Flame,
   Gift,
+  Gauge,
   Info,
   Lightbulb,
+  Pause,
+  Play,
   Sparkles,
   Trophy,
   Volume2,
@@ -15,6 +18,15 @@ import {
   X,
   Zap,
 } from 'lucide-react'
+import {
+  Area,
+  AreaChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import {
   PAYTABLE,
   SUIT_SYMBOL,
@@ -30,9 +42,17 @@ import {
 
 type Phase = 'idle' | 'dealt' | 'settled'
 type Stats = { hands: number; wins: number; best: number }
+type AutoSpeed = 'relaxed' | 'quick' | 'turbo'
+type BalancePoint = { hand: number; balance: number; payout: number; result: string }
 
 const COIN_VALUE = 100
 const BET_OPTIONS = [1, 2, 3, 5]
+const AUTO_SPEEDS: Array<{ key: AutoSpeed; label: string; delay: number }> = [
+  { key: 'relaxed', label: 'Relaxed', delay: 1_600 },
+  { key: 'quick', label: 'Quick', delay: 700 },
+  { key: 'turbo', label: 'Turbo', delay: 250 },
+]
+const TOP_FOUR_PAYOUTS = new Set<HandResult['key']>(['royal', 'straightFlush', 'fourKind', 'fullHouse'])
 const STARTING_CREDITS = 10_000
 const MIN_BANKROLL = 1_000
 const MAX_BANKROLL = 1_000_000
@@ -51,6 +71,19 @@ function loadNumber(key: string, fallback: number) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+function loadBalanceHistory(fallbackHand: number, fallbackBalance: number): BalancePoint[] {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem('mirage-sim-history-v1') ?? '[]')
+    if (Array.isArray(parsed) && parsed.length && parsed.every((point) =>
+      Number.isFinite(point.hand) && Number.isFinite(point.balance) && Number.isFinite(point.payout) && typeof point.result === 'string')) {
+      return parsed.slice(-120)
+    }
+  } catch {
+    // Start a clean chart if stored simulator data is malformed.
+  }
+  return [{ hand: fallbackHand, balance: fallbackBalance, payout: 0, result: 'Session start' }]
+}
+
 function normalizeBankroll(value: string | number) {
   const parsed = Number(value)
   if (!Number.isFinite(parsed) || parsed <= 0) return STARTING_CREDITS
@@ -59,6 +92,11 @@ function normalizeBankroll(value: string | number) {
 
 function displayHandLabel(result: HandResult) {
   return result.displayLabel ?? result.label
+}
+
+function formatSignedCredits(amount: number) {
+  if (amount === 0) return '$0'
+  return `${amount > 0 ? '+' : '−'}$${formatCredits(Math.abs(amount))}`
 }
 
 function PlayingCard({
@@ -154,8 +192,21 @@ function App() {
     wins: loadNumber('mirage-wins', 0),
     best: loadNumber('mirage-best-v2', 0),
   }))
+  const [simulationHands, setSimulationHands] = useState(() => loadNumber('mirage-sim-hands-v1', 0))
+  const [simulationWins, setSimulationWins] = useState(() => loadNumber('mirage-sim-wins-v1', 0))
+  const [sessionStartBalance, setSessionStartBalance] = useState(() => loadNumber('mirage-sim-start-v1', credits))
+  const [totalWagered, setTotalWagered] = useState(() => loadNumber('mirage-sim-wagered-v1', 0))
+  const [totalPaid, setTotalPaid] = useState(() => loadNumber('mirage-sim-paid-v1', 0))
+  const [balanceHistory, setBalanceHistory] = useState<BalancePoint[]>(() => loadBalanceHistory(simulationHands, credits))
   const [muted, setMuted] = useState(() => window.localStorage.getItem('mirage-muted') === 'true')
   const [coachMode, setCoachMode] = useState(() => window.localStorage.getItem('mirage-coach') === 'true')
+  const [autoPlay, setAutoPlay] = useState(false)
+  const [autoSpeed, setAutoSpeed] = useState<AutoSpeed>(() => {
+    const saved = window.localStorage.getItem('mirage-auto-speed') as AutoSpeed | null
+    return saved && AUTO_SPEEDS.some(({ key }) => key === saved) ? saved : 'quick'
+  })
+  const [pauseOnTopFour, setPauseOnTopFour] = useState(() => window.localStorage.getItem('mirage-pause-top-four') !== 'false')
+  const [autoPauseReason, setAutoPauseReason] = useState('')
   const [howToOpen, setHowToOpen] = useState(false)
   const [doubleOpen, setDoubleOpen] = useState(false)
   const [doubleCard, setDoubleCard] = useState<Card | null>(null)
@@ -165,22 +216,26 @@ function App() {
   const [showConfetti, setShowConfetti] = useState(false)
   const [replacing, setReplacing] = useState(false)
   const audioRef = useRef<AudioContext | null>(null)
+  const autoTimerRef = useRef<number | null>(null)
 
   const wager = bet * COIN_VALUE
   const cardsHeld = holds.filter(Boolean).length
   const level = Math.floor(xp / 250) + 1
   const levelProgress = xp % 250
-  const winRate = stats.hands ? Math.round((stats.wins / stats.hands) * 100) : 0
+  const simulationWinRate = simulationHands ? Math.round((simulationWins / simulationHands) * 100) : 0
   const rank = level >= 8 ? 'High Roller' : level >= 4 ? 'Card Sharp' : 'Rising Player'
   const normalizedBankrollDraft = normalizeBankroll(bankrollDraft)
   const netResult = recentWin - lastWager
+  const sessionNet = credits - sessionStartBalance
+  const gameOver = credits < COIN_VALUE && phase !== 'dealt'
+  const autoDelay = AUTO_SPEEDS.find(({ key }) => key === autoSpeed)?.delay ?? 700
 
   const currentPreview = useMemo(() => (hand.length === 5 ? evaluateHand(hand) : null), [hand])
   const strategyAdvice = useMemo(
-    () => coachMode && phase === 'dealt' && hand.length === 5
+    () => (coachMode || autoPlay) && phase === 'dealt' && hand.length === 5
       ? analyzeHandStrategy(hand, bet, COIN_VALUE)
       : null,
-    [bet, coachMode, hand, phase],
+    [autoPlay, bet, coachMode, hand, phase],
   )
   const selectedMask = holds.reduce((mask, held, index) => held ? mask | (1 << index) : mask, 0)
   const selectedStrategy = strategyAdvice?.options.find((option) => option.mask === selectedMask)
@@ -257,7 +312,15 @@ function App() {
     window.localStorage.setItem('mirage-best-v2', String(stats.best))
     window.localStorage.setItem('mirage-muted', String(muted))
     window.localStorage.setItem('mirage-coach', String(coachMode))
-  }, [coachMode, credits, muted, startingBankroll, stats, xp])
+    window.localStorage.setItem('mirage-auto-speed', autoSpeed)
+    window.localStorage.setItem('mirage-pause-top-four', String(pauseOnTopFour))
+    window.localStorage.setItem('mirage-sim-hands-v1', String(simulationHands))
+    window.localStorage.setItem('mirage-sim-wins-v1', String(simulationWins))
+    window.localStorage.setItem('mirage-sim-start-v1', String(sessionStartBalance))
+    window.localStorage.setItem('mirage-sim-wagered-v1', String(totalWagered))
+    window.localStorage.setItem('mirage-sim-paid-v1', String(totalPaid))
+    window.localStorage.setItem('mirage-sim-history-v1', JSON.stringify(balanceHistory))
+  }, [autoSpeed, balanceHistory, coachMode, credits, muted, pauseOnTopFour, sessionStartBalance, simulationHands, simulationWins, startingBankroll, stats, totalPaid, totalWagered, xp])
 
   useEffect(() => {
     if (!toast) return
@@ -273,6 +336,7 @@ function App() {
     }
     const freshDeck = createDeck()
     setCredits((value) => value - wager)
+    setTotalWagered((value) => value + wager)
     setHand(freshDeck.slice(0, 5))
     setDeck(freshDeck.slice(5))
     setHolds([false, false, false, false, false])
@@ -286,21 +350,31 @@ function App() {
     buzz()
   }, [buzz, credits, playSound, wager])
 
-  const draw = useCallback(() => {
-    if (phase !== 'dealt') return
+  const draw = useCallback((forcedHolds?: boolean[]) => {
+    if (phase !== 'dealt' || replacing) return
+    const activeHolds = forcedHolds ?? holds
     setReplacing(true)
     playSound('draw')
     window.setTimeout(() => {
       let deckIndex = 0
-      const nextHand = hand.map((card, index) => holds[index] ? card : deck[deckIndex++])
+      const nextHand = hand.map((card, index) => activeHolds[index] ? card : deck[deckIndex++])
       const nextResult = evaluateHand(nextHand)
       const payout = calculatePayout(nextResult, bet, COIN_VALUE)
+      const nextBalance = credits + payout
+      const handNumber = simulationHands + 1
       setHand(nextHand)
       setDeck((cards) => cards.slice(deckIndex))
       setResult(nextResult)
       setRecentWin(payout)
       setPhase('settled')
       setReplacing(false)
+      setTotalPaid((value) => value + payout)
+      setSimulationHands((value) => value + 1)
+      setSimulationWins((value) => value + (payout > 0 ? 1 : 0))
+      setBalanceHistory((current) => [
+        ...current,
+        { hand: handNumber, balance: nextBalance, payout, result: displayHandLabel(nextResult) },
+      ].slice(-120))
       setStats((current) => ({
         hands: current.hands + 1,
         wins: current.wins + (payout > 0 ? 1 : 0),
@@ -325,8 +399,19 @@ function App() {
         setToast(nextResult.detail ?? 'No win this hand — the next one is yours')
         playSound('lose')
       }
+
+      if (TOP_FOUR_PAYOUTS.has(nextResult.key) && autoPlay && pauseOnTopFour) {
+        setAutoPlay(false)
+        setAutoPauseReason(`Paused to celebrate ${displayHandLabel(nextResult)}`)
+      } else if (nextBalance < COIN_VALUE) {
+        setAutoPlay(false)
+        setAutoPauseReason('Game over — bankroll below $100')
+      } else if (autoPlay && nextBalance < wager) {
+        const affordableBet = BET_OPTIONS.filter((coins) => coins * COIN_VALUE <= nextBalance).at(-1) ?? 1
+        setBet(affordableBet)
+      }
     }, 270)
-  }, [bet, buzz, deck, hand, holds, phase, playSound, wager])
+  }, [autoPlay, bet, buzz, credits, deck, hand, holds, pauseOnTopFour, phase, playSound, replacing, simulationHands, wager])
 
   const handlePrimary = useCallback(() => {
     if (phase === 'dealt') draw()
@@ -342,6 +427,8 @@ function App() {
 
   const startDouble = () => {
     if (!recentWin || doubleCount >= 3) return
+    setAutoPlay(false)
+    setAutoPauseReason('Paused for double or nothing')
     const doubleDeck = createDeck()
     setCredits((value) => value - recentWin)
     setDoubleCard(doubleDeck[0])
@@ -378,11 +465,19 @@ function App() {
 
   const refill = () => {
     setCredits(startingBankroll)
+    setSessionStartBalance(startingBankroll)
+    setTotalWagered(0)
+    setTotalPaid(0)
+    setSimulationHands(0)
+    setSimulationWins(0)
+    setBalanceHistory([{ hand: 0, balance: startingBankroll, payout: 0, result: 'Wallet refill' }])
     setToast(`Wallet restored to $${formatCredits(startingBankroll)}`)
     playSound('coin')
   }
 
   const openBankrollPicker = () => {
+    setAutoPlay(false)
+    setAutoPauseReason('')
     setBankrollDraft(String(startingBankroll))
     setBankrollOpen(true)
     playSound('tap')
@@ -411,6 +506,14 @@ function App() {
     setLastWager(0)
     setStreak(0)
     setStats({ hands: 0, wins: 0, best: 0 })
+    setSessionStartBalance(nextBankroll)
+    setTotalWagered(0)
+    setTotalPaid(0)
+    setSimulationHands(0)
+    setSimulationWins(0)
+    setBalanceHistory([{ hand: 0, balance: nextBankroll, payout: 0, result: 'Session start' }])
+    setAutoPlay(false)
+    setAutoPauseReason('')
     setDoubleOpen(false)
     setDoubleCard(null)
     setDoubleReveal(false)
@@ -422,9 +525,51 @@ function App() {
     playSound('coin')
   }
 
+  const toggleAutoPlay = () => {
+    if (autoPlay) {
+      setAutoPlay(false)
+      setAutoPauseReason('Paused by player')
+      playSound('tap')
+      return
+    }
+    if (gameOver) {
+      openBankrollPicker()
+      return
+    }
+    if (credits < wager) {
+      const affordableBet = BET_OPTIONS.filter((coins) => coins * COIN_VALUE <= credits).at(-1) ?? 1
+      setBet(affordableBet)
+    }
+    setAutoPauseReason('')
+    setAutoPlay(true)
+    playSound('deal')
+  }
+
+  useEffect(() => {
+    if (autoTimerRef.current) window.clearTimeout(autoTimerRef.current)
+    if (!autoPlay || gameOver || bankrollOpen || howToOpen || doubleOpen || replacing) return
+
+    if (phase === 'dealt') {
+      if (!strategyAdvice) return
+      const recommendedHolds = strategyAdvice.recommended.holds
+      const holdDelay = Math.max(70, Math.round(autoDelay * 0.5))
+      const drawDelay = Math.max(120, Math.round(autoDelay * 0.35))
+      autoTimerRef.current = window.setTimeout(() => {
+        setHolds(recommendedHolds)
+        autoTimerRef.current = window.setTimeout(() => draw(recommendedHolds), drawDelay)
+      }, holdDelay)
+    } else {
+      autoTimerRef.current = window.setTimeout(deal, autoDelay)
+    }
+
+    return () => {
+      if (autoTimerRef.current) window.clearTimeout(autoTimerRef.current)
+    }
+  }, [autoDelay, autoPlay, bankrollOpen, deal, doubleOpen, draw, gameOver, howToOpen, phase, replacing, strategyAdvice])
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (bankrollOpen || howToOpen || doubleOpen) return
+      if (autoPlay || bankrollOpen || howToOpen || doubleOpen || gameOver) return
       if (event.key >= '1' && event.key <= '5') toggleHold(Number(event.key) - 1)
       if (event.key.toLowerCase() === 'm' && phase !== 'dealt') setBet(5)
       if (event.code === 'Space') {
@@ -434,7 +579,7 @@ function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [bankrollOpen, doubleOpen, handlePrimary, howToOpen, phase, toggleHold])
+  }, [autoPlay, bankrollOpen, doubleOpen, gameOver, handlePrimary, howToOpen, phase, toggleHold])
 
   return (
     <main className="game-shell">
@@ -521,7 +666,7 @@ function App() {
           <div className="max-note"><Sparkles size={14} /> $500 max bet unlocks the $400,000 royal</div>
         </aside>
 
-        <section className={`table-stage ${strategyAdvice ? 'coach-active' : ''}`} aria-label="Poker table">
+        <section className={`table-stage ${coachMode && strategyAdvice ? 'coach-active' : ''}`} aria-label="Poker table">
           <div className="table-halo" />
           <div className={`hand-callout ${result && result.multiplier > 0 ? 'winner' : ''}`}>
             {phase === 'idle' && <><small>FIVE-CARD DRAW</small><b>Ready when you are</b></>}
@@ -539,7 +684,7 @@ function App() {
                     index={index}
                     held={holds[index]}
                     replacing={replacing && !holds[index]}
-                    coachSuggested={Boolean(strategyAdvice?.recommended.holds[index])}
+                    coachSuggested={Boolean(coachMode && strategyAdvice?.recommended.holds[index])}
                     onClick={phase === 'dealt' ? () => toggleHold(index) : undefined}
                   />
                 ))}
@@ -555,7 +700,7 @@ function App() {
               : result.multiplier ? 'Double-or-nothing wager lost · deal again' : result.detail)}
           </div>
 
-          {strategyAdvice && selectedStrategy && (
+          {coachMode && strategyAdvice && selectedStrategy && (
             <section className="strategy-coach" aria-live="polite">
               <div className="guide-note">
                 <span className="guide-seal">♠</span>
@@ -645,14 +790,82 @@ function App() {
         </section>
 
         <aside className="right-rail">
-          <section className="panel stats-panel">
+          <section className="panel autoplay-panel">
             <div className="panel-heading compact">
-              <span><small>YOUR TABLE</small><h2>Session</h2></span>
-              <CircleDollarSign size={18} />
+              <span><small>SIMULATION MODE</small><h2>Autoplay</h2></span>
+              <Gauge size={18} />
             </div>
-            <div className="stats-grid">
-              <span><b>{stats.hands}</b><small>Hands</small></span>
-              <span><b>{winRate}%</b><small>Win rate</small></span>
+            <div className="autoplay-body">
+              <button className={`autoplay-master ${autoPlay ? 'running' : ''}`} onClick={toggleAutoPlay}>
+                <i>{autoPlay ? <Pause size={18} /> : <Play size={18} />}</i>
+                <span><b>{autoPlay ? 'Pause simulation' : 'Start simulation'}</b><small>Uses the Table Guide’s best hold</small></span>
+                <em>{autoPlay ? 'LIVE' : 'READY'}</em>
+              </button>
+              <div className="speed-setting">
+                <span><small>SPEED</small><b>{AUTO_SPEEDS.find(({ key }) => key === autoSpeed)?.label}</b></span>
+                <div role="group" aria-label="Autoplay speed">
+                  {AUTO_SPEEDS.map((speed) => (
+                    <button
+                      key={speed.key}
+                      className={autoSpeed === speed.key ? 'selected' : ''}
+                      onClick={() => setAutoSpeed(speed.key)}
+                      aria-label={`${speed.label} autoplay speed`}
+                      aria-pressed={autoSpeed === speed.key}
+                    >{speed.label[0]}</button>
+                  ))}
+                </div>
+              </div>
+              <button className={`top-four-toggle ${pauseOnTopFour ? 'active' : ''}`} onClick={() => setPauseOnTopFour((value) => !value)} aria-pressed={pauseOnTopFour}>
+                <span><Sparkles size={15} /><b>Pause on top four</b></span>
+                <i>{pauseOnTopFour ? 'ON' : 'OFF'}</i>
+                <small>Full house, four of a kind, straight flush or royal flush</small>
+              </button>
+              <div className={`autoplay-status ${autoPlay ? 'live' : ''}`}>
+                <i /> {autoPlay ? `Running · ${formatCredits(simulationHands)} hands played` : autoPauseReason || 'Waiting to start'}
+              </div>
+            </div>
+          </section>
+
+          <section className="panel stats-panel simulation-panel">
+            <div className="panel-heading compact">
+              <span><small>LIVE LEDGER</small><h2>Simulation</h2></span>
+              <BarChart3 size={18} />
+            </div>
+            <div className="simulation-metrics">
+              <span><b>{simulationHands}</b><small>Hands</small></span>
+              <span><b>{simulationWinRate}%</b><small>Hit rate</small></span>
+              <span><b>${formatCredits(totalPaid)}</b><small>Paid</small></span>
+              <span className={sessionNet >= 0 ? 'positive' : 'negative'}><b>{formatSignedCredits(sessionNet)}</b><small>Net P/L</small></span>
+            </div>
+            <div className="balance-chart" aria-label="Balance history chart">
+              {balanceHistory.length > 1 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={balanceHistory} margin={{ top: 8, right: 4, bottom: 2, left: 4 }}>
+                    <defs>
+                      <linearGradient id="balance-fill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#e6c477" stopOpacity={0.34} />
+                        <stop offset="100%" stopColor="#e6c477" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="hand" hide />
+                    <YAxis hide domain={['auto', 'auto']} />
+                    <ReferenceLine y={sessionStartBalance} stroke="rgba(248,243,231,.18)" strokeDasharray="3 3" />
+                    <Tooltip
+                      formatter={(value) => [`$${formatCredits(Number(value))}`, 'Balance']}
+                      labelFormatter={(handNumber) => `Hand ${handNumber}`}
+                      contentStyle={{ background: '#071a14', border: '1px solid rgba(231,196,119,.25)', borderRadius: 8, fontSize: 11 }}
+                      itemStyle={{ color: '#f5d98e' }}
+                    />
+                    <Area type="monotone" dataKey="balance" stroke="#e6c477" strokeWidth={2} fill="url(#balance-fill)" isAnimationActive={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <span className="chart-empty">The balance curve appears after the first hand.</span>
+              )}
+            </div>
+            <div className="ledger-line">
+              <span><small>WAGERED</small><b>${formatCredits(totalWagered)}</b></span>
+              <span><small>LAST RESULT</small><b>{balanceHistory.at(-1)?.result ?? '—'}</b></span>
             </div>
             <div className="xp-block">
               <span><small>NEXT LEVEL</small><b>{250 - levelProgress} XP</b></span>
@@ -720,6 +933,25 @@ function App() {
         </div>
       )}
 
+      {gameOver && !bankrollOpen && !doubleOpen && (
+        <div className="modal-backdrop game-over-backdrop">
+          <section className="modal game-over-modal" role="dialog" aria-modal="true" aria-labelledby="game-over-title">
+            <span className="game-over-mark">♠</span>
+            <span className="modal-kicker">TABLE CLOSED</span>
+            <h2 id="game-over-title">Game over.</h2>
+            <p className="modal-lead">Your balance fell below the $100 minimum wager. Choose a new bankroll to begin another simulation.</p>
+            <div className="game-over-stats">
+              <span><small>FINAL BALANCE</small><b>${formatCredits(credits)}</b></span>
+              <span><small>HANDS PLAYED</small><b>{simulationHands}</b></span>
+              <span className={sessionNet >= 0 ? 'positive' : 'negative'}><small>NET P/L</small><b>{formatSignedCredits(sessionNet)}</b></span>
+            </div>
+            <button className="modal-primary game-over-action" onClick={openBankrollPicker}>
+              <span>Choose a new bankroll</span><ChevronRight size={20} />
+            </button>
+          </section>
+        </div>
+      )}
+
       {howToOpen && (
         <div className="modal-backdrop" onMouseDown={() => setHowToOpen(false)}>
           <section className="modal rules-modal" role="dialog" aria-modal="true" aria-labelledby="rules-title" onMouseDown={(event) => event.stopPropagation()}>
@@ -743,6 +975,10 @@ function App() {
             <div className="double-explainer coach-explainer">
               <Lightbulb size={22} />
               <span><b>Learn while you play</b><small>Turn on Table Guide to see the strongest hold, payout probability and expected return for each hand.</small></span>
+            </div>
+            <div className="double-explainer simulator-explainer">
+              <Gauge size={22} />
+              <span><b>Run a simulation</b><small>Autoplay follows the Table Guide, tracks every hand and can pause automatically for the four biggest payout categories.</small></span>
             </div>
             <button className="modal-primary" onClick={() => setHowToOpen(false)}>Got it — let's play</button>
           </section>
